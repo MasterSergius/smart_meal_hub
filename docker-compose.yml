@@ -1,0 +1,48 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: smarthub
+      POSTGRES_PASSWORD: smarthub
+      POSTGRES_DB: smarthub
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smarthub"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    build: .
+    command: uv run alembic upgrade head
+    environment:
+      DATABASE_URL: postgresql+asyncpg://smarthub:smarthub@db:5432/smarthub
+      JWT_SECRET: change-me-in-production
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://smarthub:smarthub@db:5432/smarthub
+      JWT_SECRET: change-me-in-production
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  test:
+    build: .
+    command: uv run pytest -v
+    environment:
+      DATABASE_URL: postgresql+asyncpg://smarthub:smarthub@db:5432/smarthub
+      JWT_SECRET: test-secret-key-not-for-production
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:
