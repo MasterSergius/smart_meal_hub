@@ -19,4 +19,4 @@ async def rate_recipe(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> RatingOut:
-    ...
+    return await rating_service.upsert_rating(db, recipe_id, data, current_user)

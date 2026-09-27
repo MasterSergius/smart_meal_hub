@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.user import User
-from app.services.auth import decode_token
+from app.services.auth import decode_token, get_user_by_id
 
 bearer_scheme = HTTPBearer()
 
@@ -13,8 +13,8 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    """Validate JWT and return the authenticated user. Raises 401 if invalid."""
-    ...
+    user_id = decode_token(credentials.credentials)
+    return await get_user_by_id(db, user_id)
 
 
 async def get_current_user_optional(
@@ -23,5 +23,7 @@ async def get_current_user_optional(
     ),
     db: AsyncSession = Depends(get_db),
 ) -> User | None:
-    """Like get_current_user but returns None for unauthenticated requests."""
-    ...
+    if credentials is None:
+        return None
+    user_id = decode_token(credentials.credentials)
+    return await get_user_by_id(db, user_id)

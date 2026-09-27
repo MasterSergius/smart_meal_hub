@@ -16,6 +16,8 @@ services:
   migrate:
     build: .
     command: uv run alembic upgrade head
+    volumes:
+      - .:/app
     environment:
       DATABASE_URL: postgresql+asyncpg://smarthub:smarthub@db:5432/smarthub
       JWT_SECRET: change-me-in-production
@@ -27,6 +29,8 @@ services:
     build: .
     ports:
       - "8000:8000"
+    volumes:
+      - .:/app
     environment:
       DATABASE_URL: postgresql+asyncpg://smarthub:smarthub@db:5432/smarthub
       JWT_SECRET: change-me-in-production
@@ -37,6 +41,8 @@ services:
   test:
     build: .
     command: uv run pytest -v
+    volumes:
+      - .:/app
     environment:
       DATABASE_URL: postgresql+asyncpg://smarthub:smarthub@db:5432/smarthub
       JWT_SECRET: test-secret-key-not-for-production
