@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `make clean-pyc`: removes `*.pyc`, `*.pyo`, `*.pyd`, `*~` and `__pycache__/` (skips `.venv`);
   `make clean` now runs it too
 - Docstrings for all functions, methods and models
+- GitHub Actions workflow (`.github/workflows/tests.yml`): runs ruff and the test suite
+  against Postgres 16 on every pull request
 
 ### Fixed
 - Ratings: concurrent ratings of the same recipe could store a wrong `avg_rating` / `rating_count`
