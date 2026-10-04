@@ -1,4 +1,3 @@
-import pytest
 from httpx import AsyncClient
 
 REGISTER_URL = "/api/v1/auth/register"
@@ -41,7 +40,9 @@ async def test_login_wrong_password(client: AsyncClient) -> None:
 
 async def test_me_authenticated(client: AsyncClient) -> None:
     await client.post(REGISTER_URL, json=USER)
-    login = await client.post(LOGIN_URL, json={"email": USER["email"], "password": USER["password"]})
+    login = await client.post(
+        LOGIN_URL, json={"email": USER["email"], "password": USER["password"]}
+    )
     token = login.json()["access_token"]
     r = await client.get(ME_URL, headers={"Authorization": f"Bearer {token}"})
     assert r.status_code == 200
@@ -51,3 +52,16 @@ async def test_me_authenticated(client: AsyncClient) -> None:
 async def test_me_unauthenticated(client: AsyncClient) -> None:
     r = await client.get(ME_URL)
     assert r.status_code == 403
+
+
+async def test_register_short_password(client: AsyncClient) -> None:
+    r = await client.post(
+        REGISTER_URL, json={**USER, "email": "short@example.com", "password": "short"}
+    )
+    assert r.status_code == 422
+
+
+async def test_me_invalid_token(client: AsyncClient) -> None:
+    r = await client.get(ME_URL, headers={"Authorization": "Bearer not-a-jwt"})
+    assert r.status_code == 401
+    assert r.headers["www-authenticate"] == "Bearer"

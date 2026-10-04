@@ -1,4 +1,3 @@
-import pytest
 from httpx import AsyncClient
 
 REGISTER_URL = "/api/v1/auth/register"
@@ -23,7 +22,9 @@ RECIPE_PAYLOAD = {
 
 
 async def _auth_header(client: AsyncClient, email: str = "bob@example.com") -> dict:
-    await client.post(REGISTER_URL, json={"email": email, "password": "password123", "display_name": "Bob"})
+    await client.post(
+        REGISTER_URL, json={"email": email, "password": "password123", "display_name": "Bob"}
+    )
     r = await client.post(LOGIN_URL, json={"email": email, "password": "password123"})
     return {"Authorization": f"Bearer {r.json()['access_token']}"}
 
@@ -108,3 +109,32 @@ async def test_search_max_total_time(client: AsyncClient) -> None:
     assert r.status_code == 200
     # RECIPE_PAYLOAD total is 25 min — should not appear
     assert all((i["total_time_min"] or 0) <= 20 for i in r.json()["items"])
+
+
+async def test_add_recipe_title_too_long(client: AsyncClient) -> None:
+    headers = await _auth_header(client, "long_title@example.com")
+    r = await client.post(RECIPES_URL, json={**RECIPE_PAYLOAD, "title": "x" * 201}, headers=headers)
+    assert r.status_code == 422  # used to be a 500 from Postgres
+
+
+async def test_add_recipe_negative_time(client: AsyncClient) -> None:
+    headers = await _auth_header(client, "neg_time@example.com")
+    r = await client.post(
+        RECIPES_URL, json={**RECIPE_PAYLOAD, "prep_time_min": -5}, headers=headers
+    )
+    assert r.status_code == 422
+
+
+async def test_search_wildcards_are_literal(client: AsyncClient) -> None:
+    headers = await _auth_header(client, "search_wild@example.com")
+    await client.post(RECIPES_URL, json=RECIPE_PAYLOAD, headers=headers)
+    for q in ("%", "_"):
+        r = await client.get(SEARCH_URL, params={"q": q})
+        assert r.status_code == 200
+        assert all(q in (i["title"] + (i["description"] or "")) for i in r.json()["items"])
+
+
+async def test_search_invalid_params(client: AsyncClient) -> None:
+    for params in ({"max_total_time": -1}, {"min_rating": 6}, {"limit": 101}, {"page": 0}):
+        r = await client.get(SEARCH_URL, params=params)
+        assert r.status_code == 422, params

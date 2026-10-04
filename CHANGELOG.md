@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.1] - 2026-10-04
+
+### Added
+- `make clean-pyc`: removes `*.pyc`, `*.pyo`, `*.pyd`, `*~` and `__pycache__/` (skips `.venv`);
+  `make clean` now runs it too
+- Docstrings for all functions, methods and models
+
+### Fixed
+- Ratings: concurrent ratings of the same recipe could store a wrong `avg_rating` / `rating_count`
+  (the recipe row is now locked with `SELECT ... FOR UPDATE` while the aggregate is recomputed)
+- Ratings: a double-submitted first rating could hit the unique constraint and return 500
+  (the write is now an atomic `INSERT ... ON CONFLICT DO UPDATE`)
+- Recipes: over-long titles, cuisines or diet tags and out-of-range servings or times returned 500
+  from Postgres; they are now rejected with 422
+- Search: `%` and `_` in `q` were treated as wildcards; they are now matched literally
+- Search: negative `max_total_time` and `min_rating` outside 0–5 now return 422
+- Auth: over-long `display_name` returned 500; it now returns 422
+
+### Changed
+- Services raise domain exceptions (`app/exceptions.py`) that are mapped to HTTP responses in
+  `app/main.py`; unexpected database errors are logged and return a generic 500
+- Password length is validated in the `UserRegister` schema (422 with pydantic's error format)
+- `avg_rating` in rating responses is rounded to 2 decimals, matching the stored value
+
 ## [0.1.0] - 2026-09-27
 
 ### Added

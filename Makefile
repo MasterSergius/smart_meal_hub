@@ -55,9 +55,13 @@ check: lint typecheck ## Run lint + type checks
 env: ## Copy .env.example to .env if .env does not exist
 	@test -f .env && echo ".env already exists" || (cp .env.example .env && echo "Created .env from .env.example")
 
+.PHONY: clean-pyc
+clean-pyc: ## Remove *.pyc, *.pyo, *.pyd, *~ and __pycache__ (skips .venv)
+	find . -path ./.venv -prune -o -type f \( -name '*.py[cod]' -o -name '*$$py.class' -o -name '*~' \) -exec rm -f {} + || true
+	find . -path ./.venv -prune -o -type d -name __pycache__ -exec rm -rf {} + || true
+
 .PHONY: clean
-clean: ## Remove __pycache__, .pytest_cache, .mypy_cache, .ruff_cache
-	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+clean: clean-pyc ## Remove Python bytecode, .pytest_cache, .mypy_cache, .ruff_cache
 	rm -rf .pytest_cache .mypy_cache .ruff_cache
 
 # ── Docker ────────────────────────────────────────────────────────────────────

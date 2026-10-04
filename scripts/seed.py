@@ -2,16 +2,21 @@
 Seed the database with a demo user and sample recipes.
 Run via: make seed  (locally) or make docker-seed (in Docker)
 """
+
 import asyncio
 import os
 
-os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://smarthub:smarthub@localhost:5432/smarthub")
+os.environ.setdefault(
+    "DATABASE_URL", "postgresql+asyncpg://smarthub:smarthub@localhost:5432/smarthub"
+)
 os.environ.setdefault("JWT_SECRET", "seed-secret")
 
+from sqlalchemy import select
+
 from app.database import AsyncSessionLocal
-from app.services.auth import hash_password
-from app.models.user import User
 from app.models.recipe import Recipe
+from app.models.user import User
+from app.services.auth import hash_password
 
 DEMO_USER = {
     "email": "chef@example.com",
@@ -144,9 +149,14 @@ RECIPES = [
 
 
 async def seed() -> None:
+    """Insert the demo user and sample recipes. Safe to run repeatedly.
+
+    The user is looked up by email and each recipe by title; only missing ones are
+    created, so re-running never duplicates data. Everything is committed in one
+    transaction at the end.
+    """
     async with AsyncSessionLocal() as db:
         # create demo user if not exists
-        from sqlalchemy import select
         result = await db.execute(select(User).where(User.email == DEMO_USER["email"]))
         user = result.scalar_one_or_none()
         if not user:
