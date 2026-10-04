@@ -1,14 +1,34 @@
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, SmallInteger, Text, UniqueConstraint, func
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    SmallInteger,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
+if TYPE_CHECKING:
+    from app.models.recipe import Recipe
+    from app.models.user import User
+
 
 class Rating(Base):
+    """One user's 1-5 score (and optional comment) for one recipe.
+
+    ``user_id`` is the rater, not the recipe's author (that is ``Recipe.author_id``).
+    The unique ``(recipe_id, user_id)`` constraint allows one rating per user per
+    recipe, and the rating upsert uses that constraint as its ON CONFLICT target.
+    """
+
     __tablename__ = "recipe_ratings"
     __table_args__ = (
         UniqueConstraint("recipe_id", "user_id", name="uq_rating_recipe_user"),
@@ -28,5 +48,5 @@ class Rating(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
-    recipe: Mapped["Recipe"] = relationship(back_populates="ratings")  # noqa: F821
-    user: Mapped["User"] = relationship(back_populates="ratings")  # noqa: F821
+    recipe: Mapped["Recipe"] = relationship(back_populates="ratings")
+    user: Mapped["User"] = relationship(back_populates="ratings")

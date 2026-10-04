@@ -1,4 +1,3 @@
-import pytest
 from httpx import AsyncClient
 
 REGISTER_URL = "/api/v1/auth/register"
@@ -14,7 +13,10 @@ RECIPE_PAYLOAD = {
 
 
 async def _auth_header(client: AsyncClient, email: str) -> dict:
-    await client.post(REGISTER_URL, json={"email": email, "password": "password123", "display_name": email.split("@")[0]})
+    await client.post(
+        REGISTER_URL,
+        json={"email": email, "password": "password123", "display_name": email.split("@")[0]},
+    )
     r = await client.post(LOGIN_URL, json={"email": email, "password": "password123"})
     return {"Authorization": f"Bearer {r.json()['access_token']}"}
 

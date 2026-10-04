@@ -1,6 +1,6 @@
 [project]
 name = "smart-meal-hub"
-version = "0.1.0"
+version = "0.1.1"
 description = "Smart Meal Planning & Grocery Hub — Recipe Catalog API"
 requires-python = ">=3.12"
 dependencies = [

@@ -1,13 +1,20 @@
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
+if TYPE_CHECKING:
+    from app.models.rating import Rating
+    from app.models.recipe import Recipe
+
 
 class User(Base):
+    """A registered account. ``email`` is unique; only a bcrypt hash of the password is stored."""
+
     __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
@@ -18,5 +25,5 @@ class User(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
-    recipes: Mapped[list["Recipe"]] = relationship(back_populates="author")  # noqa: F821
-    ratings: Mapped[list["Rating"]] = relationship(back_populates="user")  # noqa: F821
+    recipes: Mapped[list["Recipe"]] = relationship(back_populates="author")
+    ratings: Mapped[list["Rating"]] = relationship(back_populates="user")
