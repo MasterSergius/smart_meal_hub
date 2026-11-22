@@ -35,6 +35,7 @@ jobs:
     env:
       DATABASE_URL: postgresql+asyncpg://smarthub:smarthub@localhost:5432/smarthub_test
       JWT_SECRET: test-secret-key-not-for-production
+      APP_ENV: dev
 
     steps:
       - uses: actions/checkout@v4
@@ -55,3 +56,78 @@ jobs:
 
       - name: Run tests
         run: uv run pytest -v
+
+  # OPS-6: migrations build the schema the models describe, on an empty database.
+  migrations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: smarthub
+          POSTGRES_PASSWORD: smarthub
+          POSTGRES_DB: smarthub_migrations
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U smarthub"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://smarthub:smarthub@localhost:5432/smarthub_migrations
+      JWT_SECRET: test-secret-key-not-for-production
+      APP_ENV: dev
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Upgrade an empty database
+        run: uv run alembic upgrade head
+
+      - name: No model changes without a migration
+        run: uv run alembic check
+
+      - name: Downgrade and upgrade again
+        run: |
+          uv run alembic downgrade base
+          uv run alembic upgrade head
+
+  # OPS-6: the production image builds, runs as non-root and answers its health check.
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build production image
+        run: docker build --target prod -t smart-meal-hub:ci .
+
+      - name: Runs as non-root
+        run: test "$(docker run --rm --entrypoint id smart-meal-hub:ci -u)" != "0"
+
+      - name: Starts and answers /healthz
+        run: |
+          docker run -d --name api -p 8000:8000 \
+            -e DATABASE_URL=postgresql+asyncpg://unused:unused@localhost:5432/unused \
+            -e JWT_SECRET="$(openssl rand -hex 32)" \
+            smart-meal-hub:ci
+          for i in $(seq 1 30); do
+            curl -fsS http://localhost:8000/healthz && exit 0
+            sleep 1
+          done
+          docker logs api
+          exit 1

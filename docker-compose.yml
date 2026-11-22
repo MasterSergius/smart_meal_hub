@@ -14,19 +14,24 @@ services:
       retries: 5
 
   migrate:
-    build: .
-    command: uv run alembic upgrade head
+    build:
+      context: .
+      target: dev
+    command: alembic upgrade head
     volumes:
       - .:/app
     environment:
       DATABASE_URL: postgresql+asyncpg://smarthub:smarthub@db:5432/smarthub
       JWT_SECRET: change-me-in-production
+      APP_ENV: dev
     depends_on:
       db:
         condition: service_healthy
 
   api:
-    build: .
+    build:
+      context: .
+      target: dev
     ports:
       - "8000:8000"
     volumes:
@@ -34,18 +39,22 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://smarthub:smarthub@db:5432/smarthub
       JWT_SECRET: change-me-in-production
+      APP_ENV: dev
     depends_on:
       migrate:
         condition: service_completed_successfully
 
   test:
-    build: .
-    command: uv run pytest -v
+    build:
+      context: .
+      target: dev
+    command: pytest -v
     volumes:
       - .:/app
     environment:
       DATABASE_URL: postgresql+asyncpg://smarthub:smarthub@db:5432/smarthub
       JWT_SECRET: test-secret-key-not-for-production
+      APP_ENV: dev
     depends_on:
       migrate:
         condition: service_completed_successfully

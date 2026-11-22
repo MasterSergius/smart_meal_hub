@@ -67,19 +67,23 @@ clean: clean-pyc ## Remove Python bytecode, .pytest_cache, .mypy_cache, .ruff_ca
 # ── Docker ────────────────────────────────────────────────────────────────────
 
 .PHONY: docker-build
-docker-build: ## Build Docker images
+docker-build: ## Build Docker images (cached; the run targets do this first so images match the Dockerfile)
 	$(COMPOSE) build
+
+.PHONY: docker-build-prod
+docker-build-prod: ## Build the production image (target prod) tagged smart-meal-hub:<version>
+	docker build --target prod -t smart-meal-hub:$$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml) .
 
 .PHONY: docker-rebuild
 docker-rebuild: ## Force-rebuild Docker images without cache
 	$(COMPOSE) build --no-cache
 
 .PHONY: docker-run
-docker-run: ## Start all services in the background (db + migrate + api)
+docker-run: docker-build ## Start all services in the background (db + migrate + api)
 	$(COMPOSE) up -d
 
 .PHONY: docker-run-fg
-docker-run-fg: ## Start all services in the foreground
+docker-run-fg: docker-build ## Start all services in the foreground
 	$(COMPOSE) up
 
 .PHONY: docker-stop
@@ -99,7 +103,7 @@ docker-logs-api: ## Tail logs from the API service only
 	$(COMPOSE) logs -f $(APP_SERVICE)
 
 .PHONY: docker-migrate
-docker-migrate: ## Run Alembic migrations inside Docker
+docker-migrate: docker-build ## Run Alembic migrations inside Docker
 	$(COMPOSE) run --rm migrate
 
 .PHONY: docker-migrate-down
@@ -107,25 +111,25 @@ docker-migrate-down: ## Roll back one Alembic revision inside Docker
 	$(COMPOSE) run --rm \
 		-e DATABASE_URL=postgresql+asyncpg://smarthub:smarthub@db:5432/smarthub \
 		-e JWT_SECRET=dev \
-		api uv run alembic downgrade -1
+		api alembic downgrade -1
 
 .PHONY: docker-migration
 docker-migration: ## Generate a new migration — usage: make docker-migration MSG="add users table"
 	$(COMPOSE) run --rm \
 		-e DATABASE_URL=postgresql+asyncpg://smarthub:smarthub@db:5432/smarthub \
 		-e JWT_SECRET=dev \
-		api uv run alembic revision --autogenerate -m "$(MSG)"
+		api alembic revision --autogenerate -m "$(MSG)"
 
 .PHONY: docker-test
-docker-test: ## Run tests inside Docker (against the Docker DB)
+docker-test: docker-build ## Run tests inside Docker (against the Docker DB)
 	$(COMPOSE) run --rm test
 
 .PHONY: docker-seed
-docker-seed: ## Seed the Docker DB with demo user and sample recipes
+docker-seed: docker-build ## Seed the Docker DB with demo user and sample recipes
 	$(COMPOSE) run --rm migrate
 	$(COMPOSE) run --rm \
 		-e DATABASE_URL=postgresql+asyncpg://smarthub:smarthub@db:5432/smarthub \
-		api uv run python scripts/seed.py
+		api python scripts/seed.py
 
 .PHONY: docker-shell
 docker-shell: ## Open a bash shell in the running API container
