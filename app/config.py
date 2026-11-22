@@ -32,8 +32,7 @@ class Settings(BaseSettings):
     def reject_weak_secret_in_prod(self) -> "Settings":
         """OPS-2: refuse to start in prod with a placeholder or short ``JWT_SECRET``."""
         if self.app_env == "prod" and (
-            self.jwt_secret in PLACEHOLDER_SECRETS
-            or len(self.jwt_secret) < MIN_PROD_SECRET_LENGTH
+            self.jwt_secret in PLACEHOLDER_SECRETS or len(self.jwt_secret) < MIN_PROD_SECRET_LENGTH
         ):
             raise ValueError(
                 f"JWT_SECRET must be a non-placeholder secret of at least "

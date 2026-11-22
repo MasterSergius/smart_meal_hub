@@ -37,8 +37,10 @@ class MenuGenerateIn(BaseModel):
         if v is None:
             return v
         today = datetime.now(UTC).date()
-        if not today - timedelta(days=START_DATE_PAST_DAYS) <= v <= today + timedelta(
-            days=START_DATE_FUTURE_DAYS
+        if (
+            not today - timedelta(days=START_DATE_PAST_DAYS)
+            <= v
+            <= today + timedelta(days=START_DATE_FUTURE_DAYS)
         ):
             raise ValueError(
                 f"start_date must be between {START_DATE_PAST_DAYS} days ago "

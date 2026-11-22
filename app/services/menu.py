@@ -75,9 +75,7 @@ async def load_seasonal(db: AsyncSession, region: str | None) -> generator.Seaso
     if region is None:
         return {}
     rows = await db.execute(
-        select(SeasonalProduce.name, SeasonalProduce.months).where(
-            SeasonalProduce.region == region
-        )
+        select(SeasonalProduce.name, SeasonalProduce.months).where(SeasonalProduce.region == region)
     )
     return {normalize_name(name): frozenset(months) for name, months in rows.all()}
 

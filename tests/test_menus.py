@@ -71,9 +71,7 @@ async def _add_week(
 ) -> dict[str, set[str]]:
     """7 recipes per meal type, each for one meal type only."""
     return {
-        meal: {
-            await _add_recipe(client, headers, [meal], ingredients, diet_tags) for _ in range(7)
-        }
+        meal: {await _add_recipe(client, headers, [meal], ingredients, diet_tags) for _ in range(7)}
         for meal in MEALS
     }
 
@@ -154,9 +152,7 @@ async def test_gen4_gen5_preferences_applied(client: AsyncClient) -> None:
 async def test_gen4_vegan_counts_as_vegetarian(client: AsyncClient) -> None:
     headers = await _auth_header(client)
     vegan = await _add_week(client, headers, diet_tags=["vegan"])
-    menu = (
-        await client.post(GENERATE_URL, json={"diets": ["vegetarian"]}, headers=headers)
-    ).json()
+    menu = (await client.post(GENERATE_URL, json={"diets": ["vegetarian"]}, headers=headers)).json()
     assert set(_recipe_ids(menu)) == set().union(*vegan.values())
 
 
@@ -179,7 +175,8 @@ async def test_gen12_gen13_partial_menu_with_warnings(client: AsyncClient) -> No
     assert r.status_code == 201  # D-2: never fails for lack of recipes
     menu = r.json()
     assert all(
-        (s["recipe"] and s["recipe"]["id"] == only) if s["meal_type"] == "breakfast"
+        (s["recipe"] and s["recipe"]["id"] == only)
+        if s["meal_type"] == "breakfast"
         else s["recipe"] is None
         for s in menu["slots"]
     )

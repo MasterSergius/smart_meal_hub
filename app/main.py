@@ -40,9 +40,7 @@ if settings.cors_origin_list:  # OPS-3
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(recipes.router, prefix="/api/v1/recipes", tags=["recipes"])
 app.include_router(ratings.router, prefix="/api/v1/recipes", tags=["ratings"])
-app.include_router(
-    preferences.router, prefix="/api/v1/users/me/preferences", tags=["preferences"]
-)
+app.include_router(preferences.router, prefix="/api/v1/users/me/preferences", tags=["preferences"])
 app.include_router(menus.router, prefix="/api/v1/menus", tags=["menus"])
 
 
