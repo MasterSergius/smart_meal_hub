@@ -4,12 +4,25 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
+from app.constants import DEFAULT_MEAL_TYPES, MEAL_TYPES, MealType
+from app.services.matching import normalize_name
+
 # Upper bounds below mirror the DB column types (String(n), SmallInteger) so bad input
 # is rejected with a 422 by validation instead of failing in Postgres with a 500.
 MAX_SERVINGS = 100
 MAX_TIME_MIN = 10_080  # one week; also well inside SmallInteger's 32767 limit
 
 DietTag = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
+
+
+def normalize_diet_tags(tags: list[str]) -> list[str]:
+    """C-1: lowercase, collapse whitespace and drop duplicates, keeping first-seen order."""
+    return list(dict.fromkeys(normalize_name(t) for t in tags))
+
+
+def canonical_meal_types(values: list[MealType]) -> list[MealType]:
+    """Distinct meal types in breakfast, lunch, dinner order."""
+    return [m for m in MEAL_TYPES if m in values]
 
 
 class IngredientItem(BaseModel):
@@ -36,6 +49,7 @@ class RecipeCreate(BaseModel):
     ingredients: list[IngredientItem]
     steps: list[str]
     diet_tags: list[DietTag] | None = None
+    meal_types: list[MealType] = Field(default_factory=lambda: list(DEFAULT_MEAL_TYPES))  # REC-1
     cuisine: str | None = Field(default=None, max_length=100)
     servings: int = Field(default=2, ge=1, le=MAX_SERVINGS)
     prep_time_min: int | None = Field(default=None, ge=0, le=MAX_TIME_MIN)
@@ -49,6 +63,20 @@ class RecipeCreate(BaseModel):
         if not v:
             raise ValueError("at least one ingredient is required")
         return v
+
+    @field_validator("diet_tags")
+    @classmethod
+    def normalize_tags(cls, v: list[str] | None) -> list[str] | None:
+        """Store diet tags lowercased and de-duplicated (C-1)."""
+        return normalize_diet_tags(v) if v is not None else None
+
+    @field_validator("meal_types")
+    @classmethod
+    def at_least_one_meal_type(cls, v: list[MealType]) -> list[MealType]:
+        """REC-1: 1-3 distinct meal types, stored in canonical order."""
+        if not v:
+            raise ValueError("at least one meal type is required")
+        return canonical_meal_types(v)
 
     @field_validator("steps")
     @classmethod
@@ -82,6 +110,7 @@ class RecipeOut(BaseModel):
     ingredients: list[IngredientItem]
     steps: list[str]
     diet_tags: list[str] | None
+    meal_types: list[str]
     cuisine: str | None
     servings: int
     prep_time_min: int | None
@@ -106,6 +135,7 @@ class RecipeSearchParams(BaseModel):
 
     q: str | None = Field(default=None, max_length=200)
     diet_tags: str | None = Field(default=None, max_length=500)  # comma-separated, AND logic
+    meal_type: MealType | None = None  # REC-3
     cuisine: str | None = Field(default=None, max_length=100)
     max_total_time: int | None = Field(default=None, ge=0)
     min_rating: float | None = Field(default=None, ge=0, le=5)

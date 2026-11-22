@@ -7,7 +7,13 @@ from sqlalchemy.orm import selectinload
 from app.exceptions import ForbiddenError, NotFoundError
 from app.models.recipe import Recipe
 from app.models.user import User
-from app.schemas.recipe import RecipeCreate, RecipeOut, RecipeSearchOut, RecipeSearchParams
+from app.schemas.recipe import (
+    RecipeCreate,
+    RecipeOut,
+    RecipeSearchOut,
+    RecipeSearchParams,
+    normalize_diet_tags,
+)
 
 
 async def create_recipe(db: AsyncSession, data: RecipeCreate, author: User) -> Recipe:
@@ -26,6 +32,7 @@ async def create_recipe(db: AsyncSession, data: RecipeCreate, author: User) -> R
         ingredients=[i.model_dump() for i in data.ingredients],
         steps=data.steps,
         diet_tags=data.diet_tags,
+        meal_types=list(data.meal_types),
         cuisine=data.cuisine,
         servings=data.servings,
         prep_time_min=data.prep_time_min,
@@ -95,6 +102,7 @@ async def search_recipes(db: AsyncSession, params: RecipeSearchParams) -> Recipe
       (wildcards in the input are escaped and matched literally).
     - ``diet_tags``: comma-separated; the recipe must have *all* of them
       (Postgres array containment, ``diet_tags @> ARRAY[...]``).
+    - ``meal_type``: the recipe can be served as that meal (REC-3).
     - ``cuisine``: case-insensitive exact match.
     - ``max_total_time``: prep + cook minutes, a missing value counting as 0.
     - ``min_rating``: minimum ``avg_rating``; unrated recipes are excluded.
@@ -111,9 +119,13 @@ async def search_recipes(db: AsyncSession, params: RecipeSearchParams) -> Recipe
         )
 
     if params.diet_tags:
-        tags = [t.strip() for t in params.diet_tags.split(",") if t.strip()]
+        # tags are stored lowercased (C-1), so compare lowercased too (REC-4)
+        tags = normalize_diet_tags([t for t in params.diet_tags.split(",") if t.strip()])
         if tags:
             query = query.where(Recipe.diet_tags.contains(tags))
+
+    if params.meal_type:
+        query = query.where(Recipe.meal_types.contains([params.meal_type]))
 
     if params.cuisine:
         query = query.where(func.lower(Recipe.cuisine) == params.cuisine.lower())
@@ -158,6 +170,7 @@ def to_recipe_out(recipe: Recipe) -> RecipeOut:
         ingredients=recipe.ingredients,
         steps=recipe.steps,
         diet_tags=recipe.diet_tags,
+        meal_types=recipe.meal_types,
         cuisine=recipe.cuisine,
         servings=recipe.servings,
         prep_time_min=recipe.prep_time_min,

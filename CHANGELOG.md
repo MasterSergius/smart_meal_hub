@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.0] - Unreleased
+
+Stage 2: weekly menu generation. Spec: `docs/spec_v0.2.0.md`.
+
+### Added
+
+#### Preferences
+- `GET` / `PUT /api/v1/users/me/preferences` — diets, excluded ingredients (stop-list),
+  household size and region; names are normalised, region uppercased
+
+#### Menus
+- `POST /api/v1/menus/generate` — 7-day menu (breakfast, lunch, dinner) that respects diets,
+  the stop-list and meal types; prefers well-rated and seasonal recipes and varies cuisines;
+  reproducible with `seed`. With too few recipes it repeats dishes or leaves slots empty and
+  says so in `warnings` instead of failing
+- `GET /api/v1/menus`, `GET` / `PATCH` / `DELETE /api/v1/menus/{id}` — owner-only
+  (other users get 404); `PATCH` changes servings
+- `POST /api/v1/menus/{id}/slots/{day}/{meal_type}/replace` — swap one dish automatically, or
+  with a chosen `recipe_id`; a chosen recipe with an excluded ingredient is kept and flagged
+- Every slot returns ingredients scaled to the menu's servings (countable units rounded up)
+
+#### Recipes
+- `meal_types` on recipes (`breakfast` / `lunch` / `dinner`, default lunch + dinner) and a
+  `meal_type` search filter
+
+#### Operations
+- `GET /readyz` — readiness probe that checks the database (503 when it is unreachable)
+- `APP_ENV` (`dev` / `prod`, default `prod`), `CORS_ORIGINS`, `LOG_FORMAT` (`text` / `json`)
+- JSON request logging (method, path, status, duration) for CloudWatch
+- Production Docker image (`--target prod`, the default): multi-stage, non-root, health check;
+  `make docker-build-prod`
+- CI: migrations job (`alembic upgrade head`, `alembic check`, downgrade/upgrade round trip)
+  and image job (build, non-root check, `/healthz` smoke test)
+- Seasonal produce data for Ukraine (`UA`), loaded by migration
+- Seed data: 39 recipes (10 breakfasts, enough vegetarian dishes for a full week)
+
+### Changed
+- **Breaking for deployments:** with `APP_ENV=prod` (the default) the app refuses to start when
+  `JWT_SECRET` is a placeholder or shorter than 32 characters. Local `.env` files and
+  docker-compose need `APP_ENV=dev`
+- Diet tags are stored lowercased and de-duplicated; search compares them case-insensitively.
+  The migration normalises existing recipes
+- docker-compose uses the image's `dev` target; the virtualenv moved to `/opt/venv` and commands
+  run without `uv run`
+
+### Migration
+- `3c8a1f2d9b47`: `recipes.meal_types` (existing recipes get lunch + dinner), GIN indexes on
+  `meal_types` / `diet_tags`, tables `user_preferences`, `seasonal_produce`, `menus`,
+  `menu_slots`
+
 ## [0.1.1] - 2026-10-04
 
 ### Added

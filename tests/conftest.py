@@ -5,6 +5,7 @@ os.environ.setdefault(
     "DATABASE_URL", "postgresql+asyncpg://smarthub:smarthub@localhost:5432/smarthub_test"
 )
 os.environ.setdefault("JWT_SECRET", "test-secret-key-not-for-production")
+os.environ.setdefault("APP_ENV", "dev")  # the test secret is a placeholder (OPS-2)
 
 import pytest
 from httpx import ASGITransport, AsyncClient

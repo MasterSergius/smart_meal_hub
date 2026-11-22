@@ -138,3 +138,51 @@ async def test_search_invalid_params(client: AsyncClient) -> None:
     for params in ({"max_total_time": -1}, {"min_rating": 6}, {"limit": 101}, {"page": 0}):
         r = await client.get(SEARCH_URL, params=params)
         assert r.status_code == 422, params
+
+
+# ── v0.2.0: meal types and diet tag normalisation (REC-1 … REC-4) ─────────────
+
+
+async def test_rec1_meal_types_default_and_explicit(client: AsyncClient) -> None:
+    headers = await _auth_header(client, "meals@example.com")
+    r = await client.post(RECIPES_URL, json=RECIPE_PAYLOAD, headers=headers)
+    assert r.json()["meal_types"] == ["lunch", "dinner"]  # REC-2, D-6 default
+
+    payload = {**RECIPE_PAYLOAD, "meal_types": ["dinner", "breakfast", "dinner"]}
+    r = await client.post(RECIPES_URL, json=payload, headers=headers)
+    assert r.status_code == 201
+    assert r.json()["meal_types"] == ["breakfast", "dinner"]  # distinct, canonical order
+
+
+async def test_rec1_meal_types_validation(client: AsyncClient) -> None:
+    headers = await _auth_header(client, "meals_bad@example.com")
+    for meal_types in ([], ["brunch"]):
+        payload = {**RECIPE_PAYLOAD, "meal_types": meal_types}
+        r = await client.post(RECIPES_URL, json=payload, headers=headers)
+        assert r.status_code == 422, meal_types
+
+
+async def test_rec3_search_by_meal_type(client: AsyncClient) -> None:
+    headers = await _auth_header(client, "meal_search@example.com")
+    title = "Unique Breakfast Porridge 7f3a"
+    payload = {**RECIPE_PAYLOAD, "title": title, "meal_types": ["breakfast"]}
+    await client.post(RECIPES_URL, json=payload, headers=headers)
+
+    r = await client.get(SEARCH_URL, params={"q": title, "meal_type": "breakfast"})
+    assert r.json()["total"] == 1
+    r = await client.get(SEARCH_URL, params={"q": title, "meal_type": "dinner"})
+    assert r.json()["total"] == 0
+    r = await client.get(SEARCH_URL, params={"meal_type": "brunch"})
+    assert r.status_code == 422
+
+
+async def test_rec4_diet_tags_normalised(client: AsyncClient) -> None:
+    headers = await _auth_header(client, "tags@example.com")
+    title = "Case Insensitive Tags 9b1c"
+    tags = ["Vegetarian", " vegetarian ", "Low-Calorie"]
+    payload = {**RECIPE_PAYLOAD, "title": title, "diet_tags": tags}
+    r = await client.post(RECIPES_URL, json=payload, headers=headers)
+    assert r.json()["diet_tags"] == ["vegetarian", "low-calorie"]
+
+    r = await client.get(SEARCH_URL, params={"q": title, "diet_tags": "VEGETARIAN"})
+    assert r.json()["total"] == 1

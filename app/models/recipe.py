@@ -2,10 +2,23 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, SmallInteger, String, Text, func
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    SmallInteger,
+    String,
+    Text,
+    func,
+    text,
+)
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.constants import DEFAULT_MEAL_TYPES
 from app.database import Base
 
 if TYPE_CHECKING:
@@ -19,10 +32,20 @@ class Recipe(Base):
     ``ingredients`` and ``steps`` are JSONB, ``diet_tags`` is a Postgres text array.
     ``avg_rating`` / ``rating_count`` are a denormalised cache of ``recipe_ratings``,
     kept in sync by ``app.services.rating.upsert_rating`` so search can filter and sort
-    on them without aggregating.
+    on them without aggregating. ``meal_types`` says which menu slots the recipe can
+    fill; GIN indexes serve the array filters of search and menu generation.
     """
 
     __tablename__ = "recipes"
+    __table_args__ = (
+        CheckConstraint(
+            "cardinality(meal_types) >= 1 "
+            "AND meal_types <@ ARRAY['breakfast', 'lunch', 'dinner']::varchar[]",
+            name="ck_recipes_meal_types",
+        ),
+        Index("ix_recipes_meal_types", "meal_types", postgresql_using="gin"),
+        Index("ix_recipes_diet_tags", "diet_tags", postgresql_using="gin"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     author_id: Mapped[uuid.UUID] = mapped_column(
@@ -35,7 +58,13 @@ class Recipe(Base):
     # [{"name": str, "amount": float, "unit": str}, ...]
     steps: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
     # ["Step 1 text", "Step 2 text", ...]
-    diet_tags: Mapped[list[str] | None] = mapped_column(ARRAY(String(50)))
+    diet_tags: Mapped[list[str] | None] = mapped_column(ARRAY(String(50)))  # lowercase (C-1)
+    meal_types: Mapped[list[str]] = mapped_column(
+        ARRAY(String(10)),
+        nullable=False,
+        default=lambda: list(DEFAULT_MEAL_TYPES),
+        server_default=text("'{lunch,dinner}'"),
+    )
     cuisine: Mapped[str | None] = mapped_column(String(100))
     servings: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=2)
     prep_time_min: Mapped[int | None] = mapped_column(SmallInteger)
