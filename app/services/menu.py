@@ -32,7 +32,6 @@ from app.services import preferences as preferences_service
 from app.services.matching import normalize_name
 from app.services.scaling import scale_ingredients
 
-
 # ── Loading generator inputs (GEN-14) ─────────────────────────────────────────
 
 
